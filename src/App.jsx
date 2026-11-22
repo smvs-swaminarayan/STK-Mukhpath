@@ -39,6 +39,7 @@ import {
   VACHANAMRUTS, 
   KIRTANS 
 } from './data/masterData';
+import RunningWorkTab from './components/RunningWorkTab';
 
 function TrashIcon({ size = 15 }) {
   return (
@@ -429,7 +430,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('SMVS_PORTAL_ROLE', role);
-    if (role === 'mukto' && (activeTab === 'standup' || activeTab === 'admin')) {
+    if (role === 'mukto' && (activeTab === 'standup' || activeTab === 'admin' || activeTab === 'running_work')) {
       setActiveTab('entry');
     }
   }, [role, activeTab]);
@@ -1914,6 +1915,17 @@ export default function App() {
                 <span>📑</span> <span>{rep.title}</span>
               </button>
             ))}
+
+          {role === 'main' && (
+            <button 
+              type="button" 
+              className={activeTab === 'running_work' ? 'active' : ''} 
+              onClick={() => setActiveTab('running_work')}
+              style={{ background: activeTab === 'running_work' ? 'var(--primary)' : 'rgba(59, 130, 246, 0.22)', color: '#93c5fd' }}
+            >
+              <span>🖨️</span> <span>{lang === 'gu' ? 'મુખપાઠ રનિંગ વર્ક (સ્લીપ)' : 'mukhpath Running Work'}</span>
+            </button>
+          )}
 
           {role === 'main' && (
             <button 
@@ -7633,6 +7645,16 @@ export default function App() {
               </div>
             )}
           </div>
+        )}
+
+        {/* ================= TAB: MUKHPATH RUNNING WORK (SLIP PRINT) ================= */}
+        {activeTab === 'running_work' && role === 'main' && (
+          <RunningWorkTab
+            membersList={membersList}
+            vachanamrutsList={vachanamrutsList}
+            kirtansList={kirtansList}
+            lang={lang}
+          />
         )}
 
       </main>
