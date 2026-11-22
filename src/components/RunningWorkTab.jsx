@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { CHESTA_PADS } from '../data/masterData';
 
 // Default sample rows based on user's image
 const DEFAULT_ROWS = [
-  { id: 1, date: '16-11-2026', dayLabel: 'દિવસ - 1', title: 'પ્રથમ શ્રી હરિને ચરણે શીશ નમાવું', note: '' },
-  { id: 2, date: '17-11-2026', dayLabel: 'દિવસ - 2', title: 'સંભાળ સૈયર રે લીલા નટનાગરની', note: '' },
-  { id: 3, date: '18-11-2026', dayLabel: 'દિવસ - 3', title: 'મનુષ્યલીલા રે કરતાં મંગલકારી', note: '' },
-  { id: 4, date: '19-11-2026', dayLabel: 'દિવસ - 4', title: 'મોહનજીની રે લીલા અતિ સુખકારી', note: '' },
-  { id: 5, date: '20-11-2026', dayLabel: 'દિવસ - 5', title: 'સંભાળ સજની રે દિવ્ય સ્વરૂપ', note: '' },
-  { id: 6, date: '21-11-2026', dayLabel: 'દિવસ - 6', title: 'વચનામૃત ગઢડા પ્રથમ 15', note: '' },
+  { id: 1, date: '16-11-2026', dayLabel: 'દિવસ - 1', title: 'ચેષ્ટા પદ - ૧ (પ્રથમ શ્રીહરિને રે ચરણે શીશ નમાવું)', note: '' },
+  { id: 2, date: '17-11-2026', dayLabel: 'દિવસ - 2', title: 'ચેષ્ટા પદ - ૨ (સાંભળ સૈયર રે લીલા નટનાગરની)', note: '' },
+  { id: 3, date: '18-11-2026', dayLabel: 'દિવસ - 3', title: 'ચેષ્ટા પદ - ૩ (મનુષ્યલીલા રે કરતાં મંગલકારી)', note: '' },
+  { id: 4, date: '19-11-2026', dayLabel: 'દિવસ - 4', title: 'ચેષ્ટા પદ - ૪ (મોહનજીની રે લીલા અતિ સુખકારી)', note: '' },
+  { id: 5, date: '20-11-2026', dayLabel: 'દિવસ - 5', title: 'ચેષ્ટા પદ - ૫ (સાંભળ સજની રે દિવ્ય સ્વરૂપ મોરારિ)', note: '' },
+  { id: 6, date: '21-11-2026', dayLabel: 'દિવસ - 6', title: 'વચનામૃત ગઢડા પ્રથમ-૧૫', note: '' },
 ];
 
 const GUJARATI_MONTHS = [
@@ -140,7 +141,13 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
       sec: k.sec || '',
       num: k.num
     }));
-    return { vList, kList, all: [...vList, ...kList] };
+    const cList = CHESTA_PADS.map(c => ({
+      type: 'ચેષ્ટા',
+      label: c.title,
+      sec: 'ચેષ્ટા',
+      num: c.num
+    }));
+    return { vList, kList, cList, all: [...cList, ...vList, ...kList] };
   }, [vachanamrutsList, kirtansList]);
 
   // Filtered items in quick item picker modal
@@ -148,6 +155,7 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
     let list = masterItems.all;
     if (searchTypeFilter === 'vach') list = masterItems.vList;
     if (searchTypeFilter === 'kirtan') list = masterItems.kList;
+    if (searchTypeFilter === 'chesta') list = masterItems.cList;
 
     if (!itemSearchText.trim()) return list.slice(0, 50);
     const q = itemSearchText.toLowerCase();
@@ -895,6 +903,7 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
             <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
               {[
                 { key: 'all', label: 'તમામ' },
+                { key: 'chesta', label: 'ચેષ્ટા' },
                 { key: 'kirtan', label: 'કીર્તન' },
                 { key: 'vach', label: 'વચનામૃત' }
               ].map(f => (
