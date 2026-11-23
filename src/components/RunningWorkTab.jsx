@@ -2,14 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { CHESTA_PADS } from '../data/masterData';
 
-// Default sample rows based on user's image
+// Default sample rows based on user's reference image
 const DEFAULT_ROWS = [
-  { id: 1, date: '16-11-2026', dayLabel: 'દિવસ - 1', title: 'ચેષ્ટા પદ - ૧ (પ્રથમ શ્રીહરિને રે ચરણે શીશ નમાવું)', note: '' },
-  { id: 2, date: '17-11-2026', dayLabel: 'દિવસ - 2', title: 'ચેષ્ટા પદ - ૨ (સાંભળ સૈયર રે લીલા નટનાગરની)', note: '' },
-  { id: 3, date: '18-11-2026', dayLabel: 'દિવસ - 3', title: 'ચેષ્ટા પદ - ૩ (મનુષ્યલીલા રે કરતાં મંગલકારી)', note: '' },
-  { id: 4, date: '19-11-2026', dayLabel: 'દિવસ - 4', title: 'ચેષ્ટા પદ - ૪ (મોહનજીની રે લીલા અતિ સુખકારી)', note: '' },
-  { id: 5, date: '20-11-2026', dayLabel: 'દિવસ - 5', title: 'ચેષ્ટા પદ - ૫ (સાંભળ સજની રે દિવ્ય સ્વરૂપ મોરારિ)', note: '' },
-  { id: 6, date: '21-11-2026', dayLabel: 'દિવસ - 6', title: 'વચનામૃત ગઢડા પ્રથમ-૧૫', note: '' },
+  { id: 1, date: '16-11-2026', dayLabel: 'દિવસ - 1', title: 'પ્રથમ શ્રી હરિને ચરણે શીશ નમાવું', note: '' },
+  { id: 2, date: '17-11-2026', dayLabel: 'દિવસ - 2', title: 'સંભાળ સૈયર રે લીલા નટનાગરની', note: '' },
+  { id: 3, date: '18-11-2026', dayLabel: 'દિવસ - 3', title: 'મનુષ્યલીલા રે કરતાં મંગલકારી', note: '' },
+  { id: 4, date: '19-11-2026', dayLabel: 'દિવસ - 4', title: 'મોહનજીની રે લીલા અતિ સુખકારી', note: '' },
+  { id: 5, date: '20-11-2026', dayLabel: 'દિવસ - 5', title: 'સંભાળ સજની રે દિવ્ય સ્વરૂપ', note: '' },
+  { id: 6, date: '21-11-2026', dayLabel: 'દિવસ - 6', title: 'વચનામૃત ગઢડા પ્રથમ 15', note: '' },
 ];
 
 const GUJARATI_MONTHS = [
@@ -230,128 +230,156 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
 
   const [copiedStatus, setCopiedStatus] = useState(false);
 
-  // Handle Export to Excel (.xlsx) matching Image 2 layout
+  // Handle Export to Excel with 100% Colors, Borders & Hind Vadodara Font matching Image 2
   const handleExportExcel = () => {
     try {
-      const wb = XLSX.utils.book_new();
-      const wsData = [];
-      const merges = [];
-      let currentRow = 0;
+      let tableHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<!--[if gte mso 9]>
+<xml>
+ <x:ExcelWorkbook>
+  <x:ExcelWorksheets>
+   <x:ExcelWorksheet>
+    <x:Name>Mukhpath Slip Report</x:Name>
+    <x:WorksheetOptions>
+     <x:DisplayGridlines/>
+    </x:WorksheetOptions>
+   </x:ExcelWorksheet>
+  </x:ExcelWorksheets>
+ </x:ExcelWorkbook>
+</xml>
+<![endif]-->
+<style>
+  table { border-collapse: collapse; font-family: 'Hind Vadodara', 'Shruti', Arial, sans-serif; }
+  td, th { font-family: 'Hind Vadodara', 'Shruti', Arial, sans-serif; mso-font-charset: 0; }
+</style>
+</head>
+<body style="font-family: 'Hind Vadodara', 'Shruti', Arial, sans-serif;">
+<table border="1" style="border-collapse: collapse; font-family: 'Hind Vadodara', 'Shruti', Arial, sans-serif;">`;
 
-      // Stack each slip cleanly matching Image 2
       generatedSlips.forEach((slip) => {
         const member = slip.memberName || '________________';
-
-        // Row 1: Slip Title Banner (Merged A to E)
-        const titleRow = new Array(5).fill('');
-        titleRow[0] = slipTitle;
-        merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 4 } });
-        wsData.push(titleRow);
-        currentRow++;
-
-        // Row 2: Sub-Banner (Month A-B, Member C-E)
-        const subRow = new Array(5).fill('');
-        subRow[0] = `મહિનો: ${monthText}`;
-        merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 1 } });
-        subRow[2] = `પૂ. સંત / સાધક: ${member}`;
-        merges.push({ s: { r: currentRow, c: 2 }, e: { r: currentRow, c: 4 } });
-        wsData.push(subRow);
-        currentRow++;
-
-        // Row 3: Table Headers
-        const headerRow = ['ક્રમ', 'તારીખ', 'દિવસ', 'કીર્તન / વચનામૃતનું નામ', 'નોંધ'];
-        wsData.push(headerRow);
-        currentRow++;
-
-        // Daily Content Rows
+        // 1. Title Banner (Merged A to E, #D8D8D8 background, #1F4E79 bold text)
+        tableHtml += `
+          <tr>
+            <td colspan="5" style="background-color: #D8D8D8; color: #1F4E79; font-size: 16pt; font-weight: bold; text-align: center; border: 1.5pt solid #1F4E79; height: 32pt; font-family: 'Hind Vadodara', sans-serif;">
+              ${slipTitle}
+            </td>
+          </tr>
+        `;
+        // 2. Sub-Banner (A-C: Month, D-E: Member)
+        tableHtml += `
+          <tr>
+            <td colspan="3" style="background-color: #FFFFFF; color: #000000; font-weight: bold; font-size: 12pt; border: 1.5pt solid #1F4E79; height: 26pt; font-family: 'Hind Vadodara', sans-serif; padding-left: 6px;">
+              મહિનો: ${monthText}
+            </td>
+            <td colspan="2" style="background-color: #FFFFFF; color: #000000; font-weight: bold; font-size: 12pt; border: 1.5pt solid #1F4E79; height: 26pt; font-family: 'Hind Vadodara', sans-serif; padding-left: 6px;">
+              પૂ. સંત / સાધકનું નામ: ${member}
+            </td>
+          </tr>
+        `;
+        // 3. Header Row (Dark Navy Blue #1F4E79, White Text)
+        tableHtml += `
+          <tr>
+            <th style="background-color: #1F4E79; color: #FFFFFF; font-weight: bold; font-size: 12pt; border: 1.5pt solid #1F4E79; text-align: center; height: 26pt; width: 45pt; font-family: 'Hind Vadodara', sans-serif;">ક્રમ</th>
+            <th style="background-color: #1F4E79; color: #FFFFFF; font-weight: bold; font-size: 12pt; border: 1.5pt solid #1F4E79; text-align: center; height: 26pt; width: 85pt; font-family: 'Hind Vadodara', sans-serif;">તારીખ</th>
+            <th style="background-color: #1F4E79; color: #FFFFFF; font-weight: bold; font-size: 12pt; border: 1.5pt solid #1F4E79; text-align: center; height: 26pt; width: 75pt; font-family: 'Hind Vadodara', sans-serif;">દિવસ</th>
+            <th style="background-color: #1F4E79; color: #FFFFFF; font-weight: bold; font-size: 12pt; border: 1.5pt solid #1F4E79; text-align: left; height: 26pt; width: 260pt; font-family: 'Hind Vadodara', sans-serif; padding-left: 6px;">કીર્તન / વચનામૃતનું નામ</th>
+            <th style="background-color: #1F4E79; color: #FFFFFF; font-weight: bold; font-size: 12pt; border: 1.5pt solid #1F4E79; text-align: left; height: 26pt; width: 140pt; font-family: 'Hind Vadodara', sans-serif; padding-left: 6px;">નોંધ</th>
+          </tr>
+        `;
+        // 4. Data Rows (Alternating #D6EAF8 and #FFFFFF)
         rowsData.forEach((row, rIdx) => {
-          const dataRow = [
-            rIdx + 1,
-            row.date || '',
-            row.dayLabel || '',
-            row.title || '',
-            row.note || ''
-          ];
-          wsData.push(dataRow);
-          currentRow++;
+          const bg = rIdx % 2 === 0 ? '#D6EAF8' : '#FFFFFF';
+          tableHtml += `
+            <tr style="background-color: ${bg};">
+              <td style="background-color: ${bg}; border: 1pt solid #8EA9DB; text-align: center; height: 24pt; font-weight: bold; font-family: 'Hind Vadodara', sans-serif;">${rIdx + 1}</td>
+              <td style="background-color: ${bg}; border: 1pt solid #8EA9DB; text-align: center; height: 24pt; font-family: 'Hind Vadodara', sans-serif;">${row.date || ''}</td>
+              <td style="background-color: ${bg}; border: 1pt solid #8EA9DB; text-align: center; height: 24pt; font-family: 'Hind Vadodara', sans-serif;">${row.dayLabel || ''}</td>
+              <td style="background-color: ${bg}; border: 1pt solid #8EA9DB; text-align: left; height: 24pt; font-family: 'Hind Vadodara', sans-serif; padding-left: 6px;">${row.title || ''}</td>
+              <td style="background-color: ${bg}; border: 1pt solid #8EA9DB; text-align: left; height: 24pt; font-family: 'Hind Vadodara', sans-serif; padding-left: 6px;">${row.note || ''}</td>
+            </tr>
+          `;
         });
-
-        // 1 Spacer Row between slips
-        wsData.push(new Array(5).fill(''));
-        currentRow++;
+        // 5. Spacer Row
+        tableHtml += `
+          <tr>
+            <td colspan="5" style="height: 16pt; border: none; background-color: #FFFFFF;"></td>
+          </tr>
+        `;
       });
 
-      const ws = XLSX.utils.aoa_to_sheet(wsData);
-      ws['!merges'] = merges;
-      ws['!cols'] = [
-        { wch: 6 },  // A: ક્રમ
-        { wch: 14 }, // B: તારીખ
-        { wch: 12 }, // C: દિવસ
-        { wch: 38 }, // D: કીર્તન / વચનામૃતનું નામ
-        { wch: 22 }, // E: નોંધ
-      ];
+      tableHtml += `</table></body></html>`;
 
-      XLSX.utils.book_append_sheet(wb, ws, 'મુખપાઠ સ્લીપ');
-      XLSX.writeFile(wb, `Mukhpath_Slip_Report.xlsx`);
+      const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'Mukhpath_Slip_Report.xls');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Failed to export Excel:', err);
       alert('Excel ફાઇલ બનાવવામાં ભૂલ આવી: ' + (err.message || err));
     }
   };
 
-  // Open Google Sheets and copy rich styled HTML & TSV matching Image 2
+  // Open Google Sheets and copy rich styled HTML & TSV with Hind Vadodara font
   const handleOpenGoogleSheets = () => {
     try {
       // 1. Immediately open Google Sheets in new tab
       window.open('https://sheets.new', '_blank');
 
-      // 2. Build rich styled HTML matching Image 2 (5-column layout stacked vertically)
-      let html = `<table style="border-collapse: collapse; font-family: 'Shruti', 'Nirmala UI', Arial, sans-serif; font-size: 11pt; width: 100%; border: 1.5px solid #1F4E78;">`;
+      // 2. Build rich styled HTML matching Image 2 exactly
+      let html = `<table style="border-collapse: collapse; font-family: 'Hind Vadodara', 'Shruti', Arial, sans-serif; font-size: 11pt; width: 100%; border: 1.5px solid #1F4E79;">`;
       let tsv = '';
 
       generatedSlips.forEach((slip) => {
         const member = slip.memberName || '________________';
         
         // --- HTML FORMAT (Matches Image 2 exactly) ---
-        // 1. Title Banner (Light grayish-blue #D9E1F2 with dark blue bold text)
+        // 1. Title Banner (Light grayish-blue #D8D8D8 with dark blue bold text #1F4E79)
         html += `
           <tr>
-            <td colspan="5" style="background-color: #D9E1F2; color: #1F4E78; font-size: 14pt; font-weight: bold; text-align: center; border: 1.5px solid #1F4E78; padding: 7px 4px; letter-spacing: 0.5px;">
+            <td colspan="5" style="background-color: #D8D8D8; color: #1F4E79; font-size: 16pt; font-weight: bold; text-align: center; border: 1.5px solid #1F4E79; padding: 8px 4px; font-family: 'Hind Vadodara', sans-serif; letter-spacing: 0.5px;">
               ${slipTitle}
             </td>
           </tr>
         `;
-        // 2. Sub-Banner (Month on left, Member Name on right)
+        // 2. Sub-Banner (A-C: Month, D-E: Member Name)
         html += `
-          <tr style="background-color: #f8fafc;">
-            <td colspan="2" style="border: 1.5px solid #1F4E78; padding: 6px 8px; font-weight: bold; font-size: 10pt; color: #0f172a;">
+          <tr style="background-color: #FFFFFF;">
+            <td colspan="3" style="border: 1.5px solid #1F4E79; padding: 6px 8px; font-weight: bold; font-size: 12pt; color: #000000; font-family: 'Hind Vadodara', sans-serif;">
               મહિનો: ${monthText}
             </td>
-            <td colspan="3" style="border: 1.5px solid #1F4E78; padding: 6px 8px; font-weight: bold; font-size: 10pt; color: #0f172a;">
+            <td colspan="2" style="border: 1.5px solid #1F4E79; padding: 6px 8px; font-weight: bold; font-size: 12pt; color: #000000; font-family: 'Hind Vadodara', sans-serif;">
               પૂ. સંત / સાધકનું નામ: ${member}
             </td>
           </tr>
         `;
-        // 3. Dark Navy Blue Header Row (#1F4E78 background, white bold text)
+        // 3. Dark Navy Blue Header Row (#1F4E79 background, white bold text)
         html += `
-          <tr style="background-color: #1F4E78; color: #ffffff;">
-            <th style="background-color: #1F4E78; color: #ffffff; font-weight: bold; font-size: 10.5pt; border: 1.5px solid #1F4E78; padding: 6px; text-align: center; width: 50px;">ક્રમ</th>
-            <th style="background-color: #1F4E78; color: #ffffff; font-weight: bold; font-size: 10.5pt; border: 1.5px solid #1F4E78; padding: 6px; text-align: center; width: 100px;">તારીખ</th>
-            <th style="background-color: #1F4E78; color: #ffffff; font-weight: bold; font-size: 10.5pt; border: 1.5px solid #1F4E78; padding: 6px; text-align: center; width: 90px;">દિવસ</th>
-            <th style="background-color: #1F4E78; color: #ffffff; font-weight: bold; font-size: 10.5pt; border: 1.5px solid #1F4E78; padding: 6px; text-align: left; width: 300px;">કીર્તન / વચનામૃતનું નામ</th>
-            <th style="background-color: #1F4E78; color: #ffffff; font-weight: bold; font-size: 10.5pt; border: 1.5px solid #1F4E78; padding: 6px; text-align: left; width: 170px;">નોંધ</th>
+          <tr style="background-color: #1F4E79; color: #ffffff;">
+            <th style="background-color: #1F4E79; color: #ffffff; font-weight: bold; font-size: 12pt; border: 1.5px solid #1F4E79; padding: 6px; text-align: center; width: 50px; font-family: 'Hind Vadodara', sans-serif;">ક્રમ</th>
+            <th style="background-color: #1F4E79; color: #ffffff; font-weight: bold; font-size: 12pt; border: 1.5px solid #1F4E79; padding: 6px; text-align: center; width: 100px; font-family: 'Hind Vadodara', sans-serif;">તારીખ</th>
+            <th style="background-color: #1F4E79; color: #ffffff; font-weight: bold; font-size: 12pt; border: 1.5px solid #1F4E79; padding: 6px; text-align: center; width: 90px; font-family: 'Hind Vadodara', sans-serif;">દિવસ</th>
+            <th style="background-color: #1F4E79; color: #ffffff; font-weight: bold; font-size: 12pt; border: 1.5px solid #1F4E79; padding: 6px; text-align: left; width: 300px; font-family: 'Hind Vadodara', sans-serif;">કીર્તન / વચનામૃતનું નામ</th>
+            <th style="background-color: #1F4E79; color: #ffffff; font-weight: bold; font-size: 12pt; border: 1.5px solid #1F4E79; padding: 6px; text-align: left; width: 170px; font-family: 'Hind Vadodara', sans-serif;">નોંધ</th>
           </tr>
         `;
-        // 4. Daily content rows with clean borders
+        // 4. Daily content rows with alternating #D6EAF8 and #FFFFFF
         rowsData.forEach((row, rIdx) => {
-          const bg = rIdx % 2 === 1 ? '#f8fafc' : '#ffffff';
+          const bg = rIdx % 2 === 0 ? '#D6EAF8' : '#FFFFFF';
           html += `
             <tr style="background-color: ${bg};">
-              <td style="border: 1px solid #8EA9DB; text-align: center; padding: 6px; font-weight: bold; color: #0f172a;">${rIdx + 1}</td>
-              <td style="border: 1px solid #8EA9DB; text-align: center; padding: 6px; color: #0f172a;">${row.date || ''}</td>
-              <td style="border: 1px solid #8EA9DB; text-align: center; padding: 6px; color: #0f172a;">${row.dayLabel || ''}</td>
-              <td style="border: 1px solid #8EA9DB; text-align: left; padding: 6px 8px; color: #0f172a; font-weight: 500;">${row.title || ''}</td>
-              <td style="border: 1px solid #8EA9DB; text-align: left; padding: 6px 8px; color: #0f172a;">${row.note || ''}</td>
+              <td style="background-color: ${bg}; border: 1px solid #8EA9DB; text-align: center; padding: 6px; font-weight: bold; color: #000000; font-family: 'Hind Vadodara', sans-serif;">${rIdx + 1}</td>
+              <td style="background-color: ${bg}; border: 1px solid #8EA9DB; text-align: center; padding: 6px; color: #000000; font-family: 'Hind Vadodara', sans-serif;">${row.date || ''}</td>
+              <td style="background-color: ${bg}; border: 1px solid #8EA9DB; text-align: center; padding: 6px; color: #000000; font-family: 'Hind Vadodara', sans-serif;">${row.dayLabel || ''}</td>
+              <td style="background-color: ${bg}; border: 1px solid #8EA9DB; text-align: left; padding: 6px 8px; color: #000000; font-family: 'Hind Vadodara', sans-serif;">${row.title || ''}</td>
+              <td style="background-color: ${bg}; border: 1px solid #8EA9DB; text-align: left; padding: 6px 8px; color: #000000; font-family: 'Hind Vadodara', sans-serif;">${row.note || ''}</td>
             </tr>
           `;
         });
@@ -364,7 +392,7 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
 
         // --- TSV FORMAT ---
         tsv += `${slipTitle}\t\t\t\t\n`;
-        tsv += `મહિનો: ${monthText}\t\tપૂ. સંત / સાધક: ${member}\t\t\n`;
+        tsv += `મહિનો: ${monthText}\t\t\tપૂ. સંત / સાધક: ${member}\t\n`;
         tsv += `ક્રમ\tતારીખ\tદિવસ\tકીર્તન / વચનામૃતનું નામ\tનોંધ\n`;
         rowsData.forEach((row, rIdx) => {
           tsv += `${rIdx + 1}\t${row.date || ''}\t${row.dayLabel || ''}\t${row.title || ''}\t${row.note || ''}\n`;
@@ -385,7 +413,7 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
           })
         ]).then(() => {
           setCopiedStatus(true);
-          setTimeout(() => setCopiedStatus(false), 3500);
+          setTimeout(() => setCopiedStatus(false), 4500);
         }).catch(() => {
           fallbackCopyHtml(html, tsv);
         });
@@ -690,10 +718,31 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
                 gap: '8px',
                 boxShadow: '0 2px 8px rgba(4, 120, 87, 0.4)'
               }}
-              title="Excel (.xlsx) ફોર્મેટમાં ૪ સ્લીપનું આખું ફોર્મેટ ડાઉનલોડ કરો"
+              title="હિન્દ વડોદરા ફોન્ટ & તમામ કલર સાથે Excel ડાઉનલોડ કરો"
             >
-              <span>📊</span> {lang === 'gu' ? 'Excel ડાઉનલોડ (.xlsx)' : 'Download Excel'}
+              <span>📊</span> {lang === 'gu' ? 'Excel ડાઉનલોડ (કલર & ફોન્ટ સાથે)' : 'Download Excel (Formatted)'}
             </button>
+
+            <a
+              href="/Mukhpath_Slip_Report.xlsx"
+              download="Mukhpath_Slip_Report.xlsx"
+              style={{
+                background: '#1e3a8a',
+                color: '#ffffff',
+                textDecoration: 'none',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                fontWeight: 700,
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 8px rgba(30, 58, 138, 0.3)'
+              }}
+              title="મૂળ ટેમ્પલેટ .xlsx ફાઇલ ડાઉનલોડ કરો"
+            >
+              <span>📥</span> {lang === 'gu' ? 'મૂળ ટેમ્પલેટ (.xlsx)' : 'Original Template'}
+            </a>
 
             <button
               type="button"
@@ -712,9 +761,9 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
                 gap: '6px',
                 boxShadow: '0 2px 8px rgba(2, 132, 199, 0.3)'
               }}
-              title="Google Sheets નવી ટેબમાં ખોલો"
+              title="Google Sheets નવી ટેબમાં ખોલો અને Ctrl+V કરો"
             >
-              <span>{copiedStatus ? '✓' : '🟢'}</span> {copiedStatus ? (lang === 'gu' ? 'કોપી થઈ ગયું!' : 'Copied!') : (lang === 'gu' ? 'Google Sheets માં ખોલો' : 'Open in Google Sheets')}
+              <span>{copiedStatus ? '✓' : '🟢'}</span> {copiedStatus ? (lang === 'gu' ? 'કોપી થઈ ગયું! (Ctrl+V કરો)' : 'Copied! (Press Ctrl+V)') : (lang === 'gu' ? 'Google Sheets માં ખોલો' : 'Open in Google Sheets')}
             </button>
 
             <button
@@ -1269,8 +1318,26 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
                 gap: '6px'
               }}
             >
-              📊 Excel ડાઉનલોડ (.xlsx)
+              📊 Excel ડાઉનલોડ (કલર સાથે)
             </button>
+            <a
+              href="/Mukhpath_Slip_Report.xlsx"
+              download="Mukhpath_Slip_Report.xlsx"
+              style={{
+                background: '#1e3a8a',
+                color: '#ffffff',
+                textDecoration: 'none',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontWeight: 700,
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              📥 મૂળ ટેમ્પલેટ (.xlsx)
+            </a>
             <button
               type="button"
               onClick={handleOpenGoogleSheets}
@@ -1405,6 +1472,36 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
         ))}
 
       </div>
+
+      {/* Floating Toast Notification when Copied for Google Sheets */}
+      {copiedStatus && (
+        <div style={{
+          position: 'fixed',
+          top: '24px',
+          right: '24px',
+          background: 'linear-gradient(135deg, #1e3a8a 0%, #1F4E79 100%)',
+          color: '#ffffff',
+          padding: '14px 22px',
+          borderRadius: '10px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+          zIndex: 999999,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          fontSize: '14px',
+          fontWeight: 700,
+          fontFamily: "'Hind Vadodara', sans-serif",
+          border: '1.5px solid rgba(255,255,255,0.3)'
+        }}>
+          <span style={{ fontSize: '22px' }}>✅</span>
+          <div>
+            <div style={{ fontSize: '15px' }}>ગૂગલ શીટ નવી ટેબમાં ખુલી ગઈ છે!</div>
+            <div style={{ fontSize: '12.5px', color: '#93c5fd', marginTop: '3px' }}>
+              ત્યાં જઈને ફક્ત <strong>Ctrl + V</strong> (Paste) દબાવો — હિન્દ વડોદરા ફોન્ટ અને તમામ કલર સાથે પેસ્ટ થશે!
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
