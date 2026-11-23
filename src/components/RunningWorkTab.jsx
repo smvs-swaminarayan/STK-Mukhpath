@@ -230,7 +230,7 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
 
   const [copiedStatus, setCopiedStatus] = useState(false);
 
-  // Handle Export to Excel (.xlsx) with side-by-side 4-slip per page layout
+  // Handle Export to Excel (.xlsx) matching Image 2 layout
   const handleExportExcel = () => {
     try {
       const wb = XLSX.utils.book_new();
@@ -238,155 +238,189 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
       const merges = [];
       let currentRow = 0;
 
-      // Group slips by 2 (Left column: cols 0-5, Right column: cols 7-12)
-      for (let i = 0; i < generatedSlips.length; i += 2) {
-        const leftSlip = generatedSlips[i];
-        const rightSlip = generatedSlips[i + 1] || null;
+      // Stack each slip cleanly matching Image 2
+      generatedSlips.forEach((slip) => {
+        const member = slip.memberName || '________________';
 
-        // Row 1: Slip Title Banner
-        const titleRow = new Array(13).fill('');
+        // Row 1: Slip Title Banner (Merged A to E)
+        const titleRow = new Array(5).fill('');
         titleRow[0] = slipTitle;
-        merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 5 } });
-        if (rightSlip) {
-          titleRow[7] = slipTitle;
-          merges.push({ s: { r: currentRow, c: 7 }, e: { r: currentRow, c: 12 } });
-        }
+        merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 4 } });
         wsData.push(titleRow);
         currentRow++;
 
-        // Row 2: Sub-Banner (Member Name & Month)
-        const subRow = new Array(13).fill('');
-        subRow[0] = `પૂ. સંત / સાધક: ${leftSlip.memberName || '________________'}`;
-        merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 3 } });
-        subRow[4] = `માસ: ${monthText}`;
-        merges.push({ s: { r: currentRow, c: 4 }, e: { r: currentRow, c: 5 } });
-
-        if (rightSlip) {
-          subRow[7] = `પૂ. સંત / સાધક: ${rightSlip.memberName || '________________'}`;
-          merges.push({ s: { r: currentRow, c: 7 }, e: { r: currentRow, c: 10 } });
-          subRow[11] = `માસ: ${monthText}`;
-          merges.push({ s: { r: currentRow, c: 11 }, e: { r: currentRow, c: 12 } });
-        }
+        // Row 2: Sub-Banner (Month A-B, Member C-E)
+        const subRow = new Array(5).fill('');
+        subRow[0] = `મહિનો: ${monthText}`;
+        merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 1 } });
+        subRow[2] = `પૂ. સંત / સાધક: ${member}`;
+        merges.push({ s: { r: currentRow, c: 2 }, e: { r: currentRow, c: 4 } });
         wsData.push(subRow);
         currentRow++;
 
         // Row 3: Table Headers
-        const headerRow = new Array(13).fill('');
-        const headers = ['ક્રમ', 'તારીખ', 'દિવસ', 'કીર્તન / વચનામૃતનું નામ', 'તપાસ (✓)', 'નોંધ'];
-        headers.forEach((h, hIdx) => { headerRow[hIdx] = h; });
-        if (rightSlip) {
-          headers.forEach((h, hIdx) => { headerRow[7 + hIdx] = h; });
-        }
+        const headerRow = ['ક્રમ', 'તારીખ', 'દિવસ', 'કીર્તન / વચનામૃતનું નામ', 'નોંધ'];
         wsData.push(headerRow);
         currentRow++;
 
         // Daily Content Rows
         rowsData.forEach((row, rIdx) => {
-          const dataRow = new Array(13).fill('');
-          dataRow[0] = rIdx + 1;
-          dataRow[1] = row.date || '';
-          dataRow[2] = row.dayLabel || '';
-          dataRow[3] = row.title || '';
-          dataRow[4] = '☐';
-          dataRow[5] = row.note || '';
-
-          if (rightSlip) {
-            dataRow[7] = rIdx + 1;
-            dataRow[8] = row.date || '';
-            dataRow[9] = row.dayLabel || '';
-            dataRow[10] = row.title || '';
-            dataRow[11] = '☐';
-            dataRow[12] = row.note || '';
-          }
+          const dataRow = [
+            rIdx + 1,
+            row.date || '',
+            row.dayLabel || '',
+            row.title || '',
+            row.note || ''
+          ];
           wsData.push(dataRow);
           currentRow++;
         });
 
-        // 2 Spacer Rows between slip pairs
-        wsData.push(new Array(13).fill(''));
-        wsData.push(new Array(13).fill(''));
-        currentRow += 2;
-      }
+        // 1 Spacer Row between slips
+        wsData.push(new Array(5).fill(''));
+        currentRow++;
+      });
 
       const ws = XLSX.utils.aoa_to_sheet(wsData);
       ws['!merges'] = merges;
       ws['!cols'] = [
         { wch: 6 },  // A: ક્રમ
-        { wch: 13 }, // B: તારીખ
+        { wch: 14 }, // B: તારીખ
         { wch: 12 }, // C: દિવસ
-        { wch: 34 }, // D: કીર્તન / વચનામૃત
-        { wch: 10 }, // E: તપાસ
-        { wch: 22 }, // F: નોંધ
-        { wch: 3 },  // G: Spacer
-        { wch: 6 },  // H: ક્રમ
-        { wch: 13 }, // I: તારીખ
-        { wch: 12 }, // J: દિવસ
-        { wch: 34 }, // K: કીર્તન / વચનામૃત
-        { wch: 10 }, // L: તપાસ
-        { wch: 22 }, // M: નોંધ
+        { wch: 38 }, // D: કીર્તન / વચનામૃતનું નામ
+        { wch: 22 }, // E: નોંધ
       ];
 
-      XLSX.utils.book_append_sheet(wb, ws, 'મુખપાઠ સ્લીપ (4-Slip)');
-      XLSX.writeFile(wb, `Mukhpath_Slips_${monthText || 'Nov-2026'}.xlsx`);
+      XLSX.utils.book_append_sheet(wb, ws, 'મુખપાઠ સ્લીપ');
+      XLSX.writeFile(wb, `Mukhpath_Slip_Report.xlsx`);
     } catch (err) {
       console.error('Failed to export Excel:', err);
       alert('Excel ફાઇલ બનાવવામાં ભૂલ આવી: ' + (err.message || err));
     }
   };
 
-  // Open Google Sheets and copy structured TSV to clipboard
+  // Open Google Sheets and copy rich styled HTML & TSV matching Image 2
   const handleOpenGoogleSheets = () => {
     try {
-      // 1. Immediately open Google Sheets in new tab synchronously on click
+      // 1. Immediately open Google Sheets in new tab
       window.open('https://sheets.new', '_blank');
 
-      // 2. Prepare formatted TSV data
+      // 2. Build rich styled HTML matching Image 2 (5-column layout stacked vertically)
+      let html = `<table style="border-collapse: collapse; font-family: 'Shruti', 'Nirmala UI', Arial, sans-serif; font-size: 11pt; width: 100%; border: 1.5px solid #1F4E78;">`;
       let tsv = '';
-      for (let i = 0; i < generatedSlips.length; i += 2) {
-        const leftSlip = generatedSlips[i];
-        const rightSlip = generatedSlips[i + 1] || null;
 
-        tsv += `${slipTitle}\t\t\t\t\t\t\t${rightSlip ? slipTitle : ''}\n`;
-        tsv += `પૂ. સંત / સાધક: ${leftSlip.memberName || '_________'}\t\t\tમાસ: ${monthText}\t\t\t${rightSlip ? `પૂ. સંત / સાધક: ${rightSlip.memberName || '_________'}\t\t\tમાસ: ${monthText}` : ''}\n`;
-        tsv += `ક્રમ\tતારીખ\tદિવસ\tકીર્તન / વચનામૃતનું નામ\tતપાસ (✓)\tનોંધ\t\t${rightSlip ? `ક્રમ\tતારીખ\tદિવસ\tકીર્તન / વચનામૃતનું નામ\tતપાસ (✓)\tનોંધ` : ''}\n`;
-
+      generatedSlips.forEach((slip) => {
+        const member = slip.memberName || '________________';
+        
+        // --- HTML FORMAT (Matches Image 2 exactly) ---
+        // 1. Title Banner (Light grayish-blue #D9E1F2 with dark blue bold text)
+        html += `
+          <tr>
+            <td colspan="5" style="background-color: #D9E1F2; color: #1F4E78; font-size: 14pt; font-weight: bold; text-align: center; border: 1.5px solid #1F4E78; padding: 7px 4px; letter-spacing: 0.5px;">
+              ${slipTitle}
+            </td>
+          </tr>
+        `;
+        // 2. Sub-Banner (Month on left, Member Name on right)
+        html += `
+          <tr style="background-color: #f8fafc;">
+            <td colspan="2" style="border: 1.5px solid #1F4E78; padding: 6px 8px; font-weight: bold; font-size: 10pt; color: #0f172a;">
+              મહિનો: ${monthText}
+            </td>
+            <td colspan="3" style="border: 1.5px solid #1F4E78; padding: 6px 8px; font-weight: bold; font-size: 10pt; color: #0f172a;">
+              પૂ. સંત / સાધકનું નામ: ${member}
+            </td>
+          </tr>
+        `;
+        // 3. Dark Navy Blue Header Row (#1F4E78 background, white bold text)
+        html += `
+          <tr style="background-color: #1F4E78; color: #ffffff;">
+            <th style="background-color: #1F4E78; color: #ffffff; font-weight: bold; font-size: 10.5pt; border: 1.5px solid #1F4E78; padding: 6px; text-align: center; width: 50px;">ક્રમ</th>
+            <th style="background-color: #1F4E78; color: #ffffff; font-weight: bold; font-size: 10.5pt; border: 1.5px solid #1F4E78; padding: 6px; text-align: center; width: 100px;">તારીખ</th>
+            <th style="background-color: #1F4E78; color: #ffffff; font-weight: bold; font-size: 10.5pt; border: 1.5px solid #1F4E78; padding: 6px; text-align: center; width: 90px;">દિવસ</th>
+            <th style="background-color: #1F4E78; color: #ffffff; font-weight: bold; font-size: 10.5pt; border: 1.5px solid #1F4E78; padding: 6px; text-align: left; width: 300px;">કીર્તન / વચનામૃતનું નામ</th>
+            <th style="background-color: #1F4E78; color: #ffffff; font-weight: bold; font-size: 10.5pt; border: 1.5px solid #1F4E78; padding: 6px; text-align: left; width: 170px;">નોંધ</th>
+          </tr>
+        `;
+        // 4. Daily content rows with clean borders
         rowsData.forEach((row, rIdx) => {
-          tsv += `${rIdx + 1}\t${row.date || ''}\t${row.dayLabel || ''}\t${row.title || ''}\t☐\t${row.note || ''}\t\t`;
-          if (rightSlip) {
-            tsv += `${rIdx + 1}\t${row.date || ''}\t${row.dayLabel || ''}\t${row.title || ''}\t☐\t${row.note || ''}`;
-          }
-          tsv += '\n';
+          const bg = rIdx % 2 === 1 ? '#f8fafc' : '#ffffff';
+          html += `
+            <tr style="background-color: ${bg};">
+              <td style="border: 1px solid #8EA9DB; text-align: center; padding: 6px; font-weight: bold; color: #0f172a;">${rIdx + 1}</td>
+              <td style="border: 1px solid #8EA9DB; text-align: center; padding: 6px; color: #0f172a;">${row.date || ''}</td>
+              <td style="border: 1px solid #8EA9DB; text-align: center; padding: 6px; color: #0f172a;">${row.dayLabel || ''}</td>
+              <td style="border: 1px solid #8EA9DB; text-align: left; padding: 6px 8px; color: #0f172a; font-weight: 500;">${row.title || ''}</td>
+              <td style="border: 1px solid #8EA9DB; text-align: left; padding: 6px 8px; color: #0f172a;">${row.note || ''}</td>
+            </tr>
+          `;
+        });
+        // 5. Blank spacer row between slips
+        html += `
+          <tr>
+            <td colspan="5" style="height: 18px; border: none; background: #ffffff;"></td>
+          </tr>
+        `;
+
+        // --- TSV FORMAT ---
+        tsv += `${slipTitle}\t\t\t\t\n`;
+        tsv += `મહિનો: ${monthText}\t\tપૂ. સંત / સાધક: ${member}\t\t\n`;
+        tsv += `ક્રમ\tતારીખ\tદિવસ\tકીર્તન / વચનામૃતનું નામ\tનોંધ\n`;
+        rowsData.forEach((row, rIdx) => {
+          tsv += `${rIdx + 1}\t${row.date || ''}\t${row.dayLabel || ''}\t${row.title || ''}\t${row.note || ''}\n`;
         });
         tsv += '\n\n';
-      }
+      });
 
-      // 3. Copy TSV to clipboard
-      if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(tsv).then(() => {
+      html += `</table>`;
+
+      // 3. Copy rich HTML + fallback text to clipboard
+      if (navigator && navigator.clipboard && window.ClipboardItem) {
+        const htmlBlob = new Blob([html], { type: 'text/html' });
+        const textBlob = new Blob([tsv], { type: 'text/plain' });
+        navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html': htmlBlob,
+            'text/plain': textBlob
+          })
+        ]).then(() => {
           setCopiedStatus(true);
           setTimeout(() => setCopiedStatus(false), 3500);
         }).catch(() => {
-          fallbackCopy(tsv);
+          fallbackCopyHtml(html, tsv);
         });
       } else {
-        fallbackCopy(tsv);
+        fallbackCopyHtml(html, tsv);
       }
     } catch (e) {
-      console.warn('Google Sheets error:', e);
+      console.warn('Google Sheets export error:', e);
     }
   };
 
   const handleCopyToClipboard = handleOpenGoogleSheets;
 
-  const fallbackCopy = (text) => {
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textarea);
-    setCopiedStatus(true);
-    setTimeout(() => setCopiedStatus(false), 3500);
+  const fallbackCopyHtml = (htmlText, plainText) => {
+    try {
+      const listener = (e) => {
+        e.clipboardData.setData('text/html', htmlText);
+        e.clipboardData.setData('text/plain', plainText);
+        e.preventDefault();
+      };
+      document.addEventListener('copy', listener);
+      document.execCommand('copy');
+      document.removeEventListener('copy', listener);
+      setCopiedStatus(true);
+      setTimeout(() => setCopiedStatus(false), 3500);
+    } catch (err) {
+      const textarea = document.createElement('textarea');
+      textarea.value = plainText;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopiedStatus(true);
+      setTimeout(() => setCopiedStatus(false), 3500);
+    }
   };
 
   return (
