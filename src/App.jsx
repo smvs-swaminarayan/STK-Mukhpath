@@ -140,6 +140,23 @@ export default function App() {
   const [admBrandTitleInput, setAdmBrandTitleInput] = useState(appBrandTitle);
   const [admPortalBannerInput, setAdmPortalBannerInput] = useState(portalBannerTitle);
 
+  // Portal Live Broadcast Announcement State
+  const [portalAnnouncement, setPortalAnnouncement] = useState(() => {
+    try {
+      const saved = localStorage.getItem('SMVS_PORTAL_ANNOUNCEMENT');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+  const [dismissedAnnouncementId, setDismissedAnnouncementId] = useState(() => {
+    return localStorage.getItem('SMVS_DISMISSED_ANNOUNCEMENT_ID') || '';
+  });
+  const [announcementTimeLeft, setAnnouncementTimeLeft] = useState(null);
+  const [isAnnouncementModalOpen, setIsAnnouncementModalOpen] = useState(false);
+  const [admNoticeText, setAdmNoticeText] = useState('');
+  const [admNoticeDuration, setAdmNoticeDuration] = useState(15);
+
   // Translation & Name Helpers (Full Bilingual Support)
   const t = (guText, enText) => lang === 'gu' ? guText : enText;
 
@@ -537,6 +554,12 @@ export default function App() {
           setUserCustomFields(data.userCustomFields);
           try {
             localStorage.setItem('SMVS_CUSTOM_REPORT_EXTRA_FIELDS', JSON.stringify(data.userCustomFields));
+          } catch (e) {}
+        }
+        if (data.announcement !== undefined) {
+          setPortalAnnouncement(data.announcement);
+          try {
+            localStorage.setItem('SMVS_PORTAL_ANNOUNCEMENT', JSON.stringify(data.announcement));
           } catch (e) {}
         }
       }
@@ -1501,6 +1524,92 @@ export default function App() {
     showToast(t('✅ બ્રાન્ડિંગ અને થીમ સેટિંગ્સ સફળતાપૂર્વક સેવ થઈ ગઈ!', '✅ Branding & Theme settings saved successfully!'));
   };
 
+  // ================= ADMIN ANNOUNCEMENT BROADCAST LOGIC =================
+  useEffect(() => {
+    if (!portalAnnouncement || !portalAnnouncement.active || !portalAnnouncement.text) {
+      setAnnouncementTimeLeft(null);
+      return;
+    }
+    if (portalAnnouncement.id && portalAnnouncement.id === dismissedAnnouncementId) {
+      setAnnouncementTimeLeft(null);
+      return;
+    }
+
+    const duration = Number(portalAnnouncement.duration) || 0;
+    if (duration > 0) {
+      setAnnouncementTimeLeft(duration);
+      const interval = setInterval(() => {
+        setAnnouncementTimeLeft(prev => {
+          if (prev === null || prev <= 1) {
+            clearInterval(interval);
+            if (portalAnnouncement.id) {
+              localStorage.setItem('SMVS_DISMISSED_ANNOUNCEMENT_ID', portalAnnouncement.id);
+              setDismissedAnnouncementId(portalAnnouncement.id);
+            }
+            return null;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setAnnouncementTimeLeft(null);
+    }
+  }, [portalAnnouncement, dismissedAnnouncementId]);
+
+  const handleDismissAnnouncement = () => {
+    if (portalAnnouncement && portalAnnouncement.id) {
+      localStorage.setItem('SMVS_DISMISSED_ANNOUNCEMENT_ID', portalAnnouncement.id);
+      setDismissedAnnouncementId(portalAnnouncement.id);
+    }
+    setAnnouncementTimeLeft(null);
+  };
+
+  const handleSendAnnouncement = async () => {
+    if (!admNoticeText.trim()) {
+      alert('કૃપા કરીને નોટિસનો સંદેશ લખો.');
+      return;
+    }
+    const newAnnouncement = {
+      text: admNoticeText.trim(),
+      active: true,
+      duration: Number(admNoticeDuration) || 0,
+      id: Date.now().toString(),
+      sentAt: new Date().toISOString()
+    };
+    try {
+      localStorage.setItem('SMVS_PORTAL_ANNOUNCEMENT', JSON.stringify(newAnnouncement));
+      setPortalAnnouncement(newAnnouncement);
+      setDismissedAnnouncementId('');
+      localStorage.removeItem('SMVS_DISMISSED_ANNOUNCEMENT_ID');
+      
+      await saveSettingsDoc(admAdminPin, admMuktoPin, {
+        announcement: newAnnouncement
+      });
+      setIsAnnouncementModalOpen(false);
+      setAdmNoticeText('');
+      showToast(t('📢 નોટિસ સફળતાપૂર્વક બધાને મોકલી દીધી છે!', '📢 Broadcast notice sent to all users!'));
+    } catch (e) {
+      console.error('Error sending announcement:', e);
+      alert('નોટિસ મોકલવામાં ભૂલ આવી: ' + (e.message || e));
+    }
+  };
+
+  const handleClearAnnouncement = async () => {
+    const cleared = { text: '', active: false, id: '', duration: 0 };
+    try {
+      localStorage.setItem('SMVS_PORTAL_ANNOUNCEMENT', JSON.stringify(cleared));
+      setPortalAnnouncement(cleared);
+      await saveSettingsDoc(admAdminPin, admMuktoPin, {
+        announcement: cleared
+      });
+      setIsAnnouncementModalOpen(false);
+      showToast(t('✓ નોટિસ હટાવી દેવામાં આવી છે.', '✓ Notice cleared.'));
+    } catch (e) {
+      console.error('Error clearing announcement:', e);
+    }
+  };
+
   return (
     <div className="app-layout">
 
@@ -1569,6 +1678,147 @@ export default function App() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginTop: '10px', fontSize: '12.5px', color: '#64748b' }}>
               <span>💡 ડિવાઇસ પર પોર્ટલ સેટ થયા પછી આપોઆપ યાદ રહેશે.</span>
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => setIsGatewayOpen(false)}>✕ બંધ કરો</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= ADMIN ANNOUNCEMENT BROADCAST MODAL ================= */}
+      {isAnnouncementModalOpen && (
+        <div className="portal-modal-overlay" style={{ zIndex: 10000 }} onClick={() => setIsAnnouncementModalOpen(false)}>
+          <div className="portal-modal-card" style={{ maxWidth: '520px', textAlign: 'left' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1.5px solid #e2e8f0', paddingBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '24px' }}>📢</span>
+                <h3 style={{ margin: 0, color: '#1e3a8a', fontSize: '18px', fontWeight: 800 }}>
+                  {t('મુખ્ય એડમિન નોટિસ / જાહેરાત બોર્ડ', 'Admin Broadcast Notice')}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAnnouncementModalOpen(false)}
+                style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#64748b' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '13px', color: '#64748b', marginTop: 0, marginBottom: '14px' }}>
+              અહીંથી તમે તમામ મુક્તો/યુઝર્સના પોર્ટલ પર લાઈવ નોટિસ કે નાનો-મોટો સંદેશ મોકલી શકો છો. જે નિર્ધારિત સમય પછી આપોઆપ અથવા ક્રોસ (✕) કરવાથી જતો રહેશે.
+            </p>
+
+            {/* Current Active Announcement Status */}
+            {portalAnnouncement && portalAnnouncement.active && portalAnnouncement.text ? (
+              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '10px 14px', marginBottom: '14px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#1d4ed8' }}>🟢 હાલ સક્રિય નોટિસ:</div>
+                <div style={{ fontSize: '13.5px', color: '#1e293b', marginTop: '4px', fontWeight: 600 }}>"{portalAnnouncement.text}"</div>
+                <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '4px' }}>
+                  સમય મર્યાદા: {portalAnnouncement.duration > 0 ? `${portalAnnouncement.duration} સેકન્ડ` : 'કાયમી (યુઝર ક્રોસ કરે ત્યાં સુધી)'}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClearAnnouncement}
+                  style={{
+                    marginTop: '8px',
+                    background: '#dc2626',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  🛑 નોટિસ બંધ કરો / હટાવો
+                </button>
+              </div>
+            ) : null}
+
+            {/* Message Input */}
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#1e293b', marginBottom: '6px' }}>
+                મેસેજ / સંદેશ લખો:
+              </label>
+              <textarea
+                rows={3}
+                value={admNoticeText}
+                onChange={(e) => setAdmNoticeText(e.target.value)}
+                placeholder="દા.ત. આગામી રવિવારે વિશેષ મુખપાઠ સભા રાખેલ છે, તમામ સંતો-મુક્તોએ સમયસર પધારવું..."
+                style={{
+                  width: '100%',
+                  borderRadius: '8px',
+                  border: '1.5px solid #cbd5e1',
+                  padding: '10px',
+                  fontSize: '13.5px',
+                  boxSizing: 'border-box',
+                  fontFamily: 'inherit'
+                }}
+              />
+            </div>
+
+            {/* Duration Selector */}
+            <div style={{ marginBottom: '18px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#1e293b', marginBottom: '6px' }}>
+                ⏱️ કેટલા સમય પછી આપોઆપ જતો રહે?
+              </label>
+              <select
+                value={admNoticeDuration}
+                onChange={(e) => setAdmNoticeDuration(Number(e.target.value))}
+                style={{
+                  width: '100%',
+                  borderRadius: '8px',
+                  border: '1.5px solid #cbd5e1',
+                  padding: '9px 12px',
+                  fontSize: '13.5px',
+                  boxSizing: 'border-box'
+                }}
+              >
+                <option value={10}>⏱️ ૧૦ સેકન્ડ (10 Seconds - આપોઆપ બંધ)</option>
+                <option value={15}>⏱️ ૧૫ સેકન્ડ (15 Seconds - આપોઆપ બંધ)</option>
+                <option value={30}>⏱️ ૩૦ સેકન્ડ (30 Seconds - આપોઆપ બંધ)</option>
+                <option value={60}>⏱️ ૧ મિનિટ (60 Seconds - આપોઆપ બંધ)</option>
+                <option value={0}>📌 જ્યાં સુધી યુઝર ક્રોસ (✕) ના કરે ત્યાં સુધી</option>
+              </select>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setIsAnnouncementModalOpen(false)}
+                style={{
+                  background: '#f1f5f9',
+                  color: '#475569',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '8px',
+                  padding: '9px 16px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                રદ કરો
+              </button>
+              <button
+                type="button"
+                onClick={handleSendAnnouncement}
+                style={{
+                  background: '#1d4ed8',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '9px 20px',
+                  fontSize: '13.5px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                📢 બધાને મોકલો (Broadcast)
+              </button>
             </div>
           </div>
         </div>
@@ -1993,8 +2243,86 @@ export default function App() {
             >
               🔄 પોર્ટલ બદલો
             </button>
+
+            {role === 'main' && (
+              <button 
+                type="button" 
+                className="btn btn-ghost btn-sm" 
+                style={{ background: 'rgba(255,255,255,0.22)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', fontWeight: 800 }}
+                onClick={() => setIsAnnouncementModalOpen(true)}
+              >
+                📢 નોટિસ મોકલો
+              </button>
+            )}
           </div>
         </div>
+
+        {/* ================= REAL-TIME ADMIN BROADCAST ANNOUNCEMENT BANNER ================= */}
+        {portalAnnouncement && portalAnnouncement.active && portalAnnouncement.text && (portalAnnouncement.id !== dismissedAnnouncementId) && (
+          <div style={{
+            background: 'linear-gradient(90deg, #1e3a8a 0%, #1d4ed8 50%, #2563eb 100%)',
+            color: '#ffffff',
+            padding: '12px 18px',
+            margin: '10px 0 16px',
+            borderRadius: '10px',
+            boxShadow: '0 4px 14px rgba(30, 58, 138, 0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '14px',
+            border: '1.5px solid rgba(255, 255, 255, 0.25)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: '24px', flexShrink: 0 }}>📢</span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.8px', color: '#93c5fd', fontWeight: 800 }}>
+                  {t('મુખ્ય એડમિન તરફથી સંદેશ', 'Notice from Admin')}
+                </div>
+                <div style={{ fontSize: '14.5px', fontWeight: 700, marginTop: '2px', wordBreak: 'break-word', lineHeight: '1.4' }}>
+                  {portalAnnouncement.text}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+              {announcementTimeLeft !== null && (
+                <span style={{
+                  background: 'rgba(0,0,0,0.25)',
+                  padding: '4px 10px',
+                  borderRadius: '16px',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  color: '#e0e7ff',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  whiteSpace: 'nowrap'
+                }}>
+                  ⏱️ {announcementTimeLeft} સેકન્ડ
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleDismissAnnouncement}
+                style={{
+                  background: 'rgba(255,255,255,0.2)',
+                  border: 'none',
+                  borderRadius: '6px',
+                  width: '32px',
+                  height: '32px',
+                  color: '#ffffff',
+                  fontSize: '16px',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                title="નોટિસ બંધ કરો (✕)"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ================= TAB 1: NEW ENTRY ================= */}
         {activeTab === 'entry' && (

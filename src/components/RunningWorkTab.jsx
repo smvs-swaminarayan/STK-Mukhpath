@@ -229,7 +229,6 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
   };
 
   const [copiedStatus, setCopiedStatus] = useState(false);
-  const [sheetsModalOpen, setSheetsModalOpen] = useState(false);
 
   // Handle Export to Excel (.xlsx) with side-by-side 4-slip per page layout
   const handleExportExcel = () => {
@@ -365,8 +364,7 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
       if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(tsv).then(() => {
           setCopiedStatus(true);
-          setSheetsModalOpen(true);
-          setTimeout(() => setCopiedStatus(false), 8000);
+          setTimeout(() => setCopiedStatus(false), 3500);
         }).catch(() => {
           fallbackCopy(tsv);
         });
@@ -375,7 +373,6 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
       }
     } catch (e) {
       console.warn('Google Sheets error:', e);
-      setSheetsModalOpen(true);
     }
   };
 
@@ -389,8 +386,7 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
     document.execCommand('copy');
     document.body.removeChild(textarea);
     setCopiedStatus(true);
-    setSheetsModalOpen(true);
-    setTimeout(() => setCopiedStatus(false), 8000);
+    setTimeout(() => setCopiedStatus(false), 3500);
   };
 
   return (
@@ -682,9 +678,9 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
                 gap: '6px',
                 boxShadow: '0 2px 8px rgba(2, 132, 199, 0.3)'
               }}
-              title="Google Sheets નવી ટેબમાં ખોલો અને ટેબલ ડેટા પેસ્ટ કરો"
+              title="Google Sheets નવી ટેબમાં ખોલો"
             >
-              <span>{copiedStatus ? '✓' : '🟢'}</span> {copiedStatus ? (lang === 'gu' ? 'કોપી થઈ ગયું & ખૂલી ગયું!' : 'Opened & Copied!') : (lang === 'gu' ? 'Google Sheets માં ખોલો' : 'Open in Google Sheets')}
+              <span>{copiedStatus ? '✓' : '🟢'}</span> {copiedStatus ? (lang === 'gu' ? 'કોપી થઈ ગયું!' : 'Copied!') : (lang === 'gu' ? 'Google Sheets માં ખોલો' : 'Open in Google Sheets')}
             </button>
 
             <button
@@ -727,58 +723,6 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
             </button>
           </div>
         </div>
-
-        {/* Google Sheets Help / Success Banner */}
-        {sheetsModalOpen && (
-          <div style={{
-            background: '#f0fdf4',
-            border: '1.5px solid #22c55e',
-            borderRadius: '10px',
-            padding: '14px 18px',
-            marginBottom: '20px',
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            gap: '12px',
-            boxShadow: '0 4px 12px rgba(34, 197, 94, 0.15)'
-          }}>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: '15px', color: '#15803d', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>✅</span> {lang === 'gu' ? 'Google Sheets નવી ટેબમાં ખુલી ગયું છે અને સ્લીપનો ડેટા કોપી થઈ ગયો છે!' : 'Google Sheets opened and slip data copied!'}
-              </div>
-              <div style={{ fontSize: '13.5px', color: '#166534', marginTop: '6px', lineHeight: '1.5' }}>
-                {lang === 'gu' ? (
-                  <>
-                    નવી ખૂલેલી Google Sheet માં પહેલા ખાના <strong>(A1)</strong> પર ક્લિક કરીને ફક્ત <strong>Ctrl + V</strong> (Paste) દબાવો. તમામ ૪ સ્લીપ ટેબલ અને ખાનાઓ સહિત વ્યવસ્થિત ગોઠવાઈ જશે!
-                    <span style={{ display: 'block', fontSize: '12px', color: '#475569', marginTop: '4px' }}>
-                      જો બ્રાઉઝર પોપ-અપ બ્લોકના કારણે શીટ ના ખૂલી હોય, તો <a href="https://sheets.new" target="_blank" rel="noreferrer" style={{ color: '#0284c7', fontWeight: 'bold', textDecoration: 'underline' }}>અહીં ક્લિક કરીને સીધી Google Sheets ખોલો</a>.
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    Go to the opened Google Sheet, click cell <strong>A1</strong> and press <strong>Ctrl + V</strong> to paste all slips.
-                  </>
-                )}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSheetsModalOpen(false)}
-              style={{
-                background: '#e2e8f0',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '4px 10px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                color: '#475569'
-              }}
-              title="બંધ કરો"
-            >
-              ✕
-            </button>
-          </div>
-        )}
 
         {/* Configuration Grid */}
         <div style={{
