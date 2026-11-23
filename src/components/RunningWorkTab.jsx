@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { CHESTA_PADS } from '../data/masterData';
 
 // Default sample rows based on user's image
@@ -227,6 +228,160 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
     window.print();
   };
 
+  const [copiedStatus, setCopiedStatus] = useState(false);
+
+  // Handle Export to Excel (.xlsx) with side-by-side 4-slip per page layout
+  const handleExportExcel = () => {
+    try {
+      const wb = XLSX.utils.book_new();
+      const wsData = [];
+      const merges = [];
+      let currentRow = 0;
+
+      // Group slips by 2 (Left column: cols 0-5, Right column: cols 7-12)
+      for (let i = 0; i < generatedSlips.length; i += 2) {
+        const leftSlip = generatedSlips[i];
+        const rightSlip = generatedSlips[i + 1] || null;
+
+        // Row 1: Slip Title Banner
+        const titleRow = new Array(13).fill('');
+        titleRow[0] = slipTitle;
+        merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 5 } });
+        if (rightSlip) {
+          titleRow[7] = slipTitle;
+          merges.push({ s: { r: currentRow, c: 7 }, e: { r: currentRow, c: 12 } });
+        }
+        wsData.push(titleRow);
+        currentRow++;
+
+        // Row 2: Sub-Banner (Member Name & Month)
+        const subRow = new Array(13).fill('');
+        subRow[0] = `પૂ. સંત / સાધક: ${leftSlip.memberName || '________________'}`;
+        merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 3 } });
+        subRow[4] = `માસ: ${monthText}`;
+        merges.push({ s: { r: currentRow, c: 4 }, e: { r: currentRow, c: 5 } });
+
+        if (rightSlip) {
+          subRow[7] = `પૂ. સંત / સાધક: ${rightSlip.memberName || '________________'}`;
+          merges.push({ s: { r: currentRow, c: 7 }, e: { r: currentRow, c: 10 } });
+          subRow[11] = `માસ: ${monthText}`;
+          merges.push({ s: { r: currentRow, c: 11 }, e: { r: currentRow, c: 12 } });
+        }
+        wsData.push(subRow);
+        currentRow++;
+
+        // Row 3: Table Headers
+        const headerRow = new Array(13).fill('');
+        const headers = ['ક્રમ', 'તારીખ', 'દિવસ', 'કીર્તન / વચનામૃતનું નામ', 'તપાસ (✓)', 'નોંધ'];
+        headers.forEach((h, hIdx) => { headerRow[hIdx] = h; });
+        if (rightSlip) {
+          headers.forEach((h, hIdx) => { headerRow[7 + hIdx] = h; });
+        }
+        wsData.push(headerRow);
+        currentRow++;
+
+        // Daily Content Rows
+        rowsData.forEach((row, rIdx) => {
+          const dataRow = new Array(13).fill('');
+          dataRow[0] = rIdx + 1;
+          dataRow[1] = row.date || '';
+          dataRow[2] = row.dayLabel || '';
+          dataRow[3] = row.title || '';
+          dataRow[4] = '☐';
+          dataRow[5] = row.note || '';
+
+          if (rightSlip) {
+            dataRow[7] = rIdx + 1;
+            dataRow[8] = row.date || '';
+            dataRow[9] = row.dayLabel || '';
+            dataRow[10] = row.title || '';
+            dataRow[11] = '☐';
+            dataRow[12] = row.note || '';
+          }
+          wsData.push(dataRow);
+          currentRow++;
+        });
+
+        // 2 Spacer Rows between slip pairs
+        wsData.push(new Array(13).fill(''));
+        wsData.push(new Array(13).fill(''));
+        currentRow += 2;
+      }
+
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      ws['!merges'] = merges;
+      ws['!cols'] = [
+        { wch: 6 },  // A: ક્રમ
+        { wch: 13 }, // B: તારીખ
+        { wch: 12 }, // C: દિવસ
+        { wch: 34 }, // D: કીર્તન / વચનામૃત
+        { wch: 10 }, // E: તપાસ
+        { wch: 22 }, // F: નોંધ
+        { wch: 3 },  // G: Spacer
+        { wch: 6 },  // H: ક્રમ
+        { wch: 13 }, // I: તારીખ
+        { wch: 12 }, // J: દિવસ
+        { wch: 34 }, // K: કીર્તન / વચનામૃત
+        { wch: 10 }, // L: તપાસ
+        { wch: 22 }, // M: નોંધ
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, 'મુખપાઠ સ્લીપ (4-Slip)');
+      XLSX.writeFile(wb, `Mukhpath_Slips_${monthText || 'Nov-2026'}.xlsx`);
+    } catch (err) {
+      console.error('Failed to export Excel:', err);
+      alert('Excel ફાઇલ બનાવવામાં ભૂલ આવી: ' + (err.message || err));
+    }
+  };
+
+  // Copy structured TSV to clipboard for pasting into Google Sheets or Excel
+  const handleCopyToClipboard = () => {
+    try {
+      let tsv = '';
+      for (let i = 0; i < generatedSlips.length; i += 2) {
+        const leftSlip = generatedSlips[i];
+        const rightSlip = generatedSlips[i + 1] || null;
+
+        tsv += `${slipTitle}\t\t\t\t\t\t\t${rightSlip ? slipTitle : ''}\n`;
+        tsv += `પૂ. સંત / સાધક: ${leftSlip.memberName || '_________'}\t\t\tમાસ: ${monthText}\t\t\t${rightSlip ? `પૂ. સંત / સાધક: ${rightSlip.memberName || '_________'}\t\t\tમાસ: ${monthText}` : ''}\n`;
+        tsv += `ક્રમ\tતારીખ\tદિવસ\tકીર્તન / વચનામૃતનું નામ\tતપાસ (✓)\tનોંધ\t\t${rightSlip ? `ક્રમ\tતારીખ\tદિવસ\tકીર્તન / વચનામૃતનું નામ\tતપાસ (✓)\tનોંધ` : ''}\n`;
+
+        rowsData.forEach((row, rIdx) => {
+          tsv += `${rIdx + 1}\t${row.date || ''}\t${row.dayLabel || ''}\t${row.title || ''}\t☐\t${row.note || ''}\t\t`;
+          if (rightSlip) {
+            tsv += `${rIdx + 1}\t${row.date || ''}\t${row.dayLabel || ''}\t${row.title || ''}\t☐\t${row.note || ''}`;
+          }
+          tsv += '\n';
+        });
+        tsv += '\n\n';
+      }
+
+      if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(tsv).then(() => {
+          setCopiedStatus(true);
+          setTimeout(() => setCopiedStatus(false), 3500);
+        }).catch(() => {
+          fallbackCopy(tsv);
+        });
+      } else {
+        fallbackCopy(tsv);
+      }
+    } catch (e) {
+      console.warn('Clipboard copy error:', e);
+    }
+  };
+
+  const fallbackCopy = (text) => {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    setCopiedStatus(true);
+    setTimeout(() => setCopiedStatus(false), 3500);
+  };
+
   return (
     <div className="running-work-wrapper" style={{ padding: '16px', maxWidth: '1400px', margin: '0 auto' }}>
       
@@ -261,8 +416,8 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 6px 10px;
-          font-size: 10.5pt;
+          padding: 5px 8px;
+          font-size: 9.5pt;
           font-weight: 700;
           color: #0f172a;
           border-bottom: 1.5px solid #1F4E78;
@@ -280,8 +435,8 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
           background-color: #1F4E78 !important;
           color: #ffffff !important;
           font-weight: 700;
-          font-size: 10pt;
-          padding: 6px 4px;
+          font-size: 8.8pt;
+          padding: 5px 2px;
           text-align: center;
           border: 1px solid #1F4E78;
           white-space: nowrap;
@@ -289,11 +444,11 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
 
         .slip-table td {
           border: 1px solid #8EA9DB;
-          padding: 5px 6px;
-          font-size: 9.8pt;
+          padding: 4px 4px;
+          font-size: 8.8pt;
           color: #0f172a;
           vertical-align: middle;
-          height: 25px;
+          height: 24px;
           box-sizing: border-box;
         }
 
@@ -476,7 +631,51 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              style={{
+                background: '#047857',
+                color: '#ffffff',
+                border: 'none',
+                padding: '10px 18px',
+                borderRadius: '8px',
+                fontWeight: 800,
+                fontSize: '14px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 8px rgba(4, 120, 87, 0.4)'
+              }}
+              title="Excel (.xlsx) ફોર્મેટમાં ૪ સ્લીપનું આખું ફોર્મેટ ડાઉનલોડ કરો"
+            >
+              <span>📊</span> {lang === 'gu' ? 'Excel ડાઉનલોડ (.xlsx)' : 'Download Excel'}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCopyToClipboard}
+              style={{
+                background: copiedStatus ? '#059669' : '#0284c7',
+                color: '#ffffff',
+                border: 'none',
+                padding: '10px 16px',
+                borderRadius: '8px',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 8px rgba(2, 132, 199, 0.3)'
+              }}
+              title="Google Sheets માં પેસ્ટ કરવા માટે ટેબલ ડેટા કોપી કરો"
+            >
+              <span>{copiedStatus ? '✓' : '📋'}</span> {copiedStatus ? (lang === 'gu' ? 'કોપી થઈ ગયું!' : 'Copied!') : (lang === 'gu' ? 'Google Sheets માં કોપી' : 'Copy for Sheets')}
+            </button>
+
             <button
               type="button"
               onClick={handlePrint}
@@ -487,7 +686,7 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
                 padding: '10px 20px',
                 borderRadius: '8px',
                 fontWeight: 800,
-                fontSize: '15px',
+                fontSize: '14px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -495,7 +694,7 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
                 boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)'
               }}
             >
-              <span>🖨️</span> {lang === 'gu' ? 'A4 સાઇઝમાં પ્રિન્ટ કાઢો / PDF સેવ કરો' : 'Print A4 Slips / Save PDF'}
+              <span>🖨️</span> {lang === 'gu' ? 'A4 સાઇઝમાં પ્રિન્ટ / PDF' : 'Print A4 Slips / Save PDF'}
             </button>
 
             <button
@@ -1000,6 +1199,8 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '10px',
           background: '#f1f5f9',
           border: '1px solid #cbd5e1',
           padding: '10px 16px',
@@ -1009,22 +1210,46 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
           <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span>📄</span> A4 પ્રિન્ટ પ્રિવ્યૂ (કુલ {slipPages.length} પેજ — દરેક પેજ પર ૪ સ્લીપ)
           </div>
-          <button
-            type="button"
-            onClick={handlePrint}
-            style={{
-              background: '#1F4E78',
-              color: '#ffffff',
-              border: 'none',
-              padding: '6px 14px',
-              borderRadius: '6px',
-              fontWeight: 700,
-              fontSize: '13px',
-              cursor: 'pointer'
-            }}
-          >
-            🖨️ પ્રિન્ટ વિન્ડો ખોલો
-          </button>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              style={{
+                background: '#047857',
+                color: '#ffffff',
+                border: 'none',
+                padding: '6px 14px',
+                borderRadius: '6px',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              📊 Excel ડાઉનલોડ (.xlsx)
+            </button>
+            <button
+              type="button"
+              onClick={handlePrint}
+              style={{
+                background: '#1F4E78',
+                color: '#ffffff',
+                border: 'none',
+                padding: '6px 14px',
+                borderRadius: '6px',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              🖨️ પ્રિન્ટ વિન્ડો ખોલો
+            </button>
+          </div>
         </div>
 
         {/* Render each A4 Sheet (4 slips per sheet) */}
@@ -1046,15 +1271,15 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
 
                 {/* 2. Sub-Banner (Month & Member Name) */}
                 <div className="slip-sub-banner">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ color: '#1F4E78' }}>મહિનો:</span>
-                    <span>{monthText}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ color: '#1F4E78' }}>પૂ.સંત/સાધકનું નામ:</span>
-                    <span style={{ fontWeight: 800, color: '#0f172a' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '68%' }}>
+                    <span style={{ color: '#1F4E78', fontWeight: 800 }}>પૂ.સંત/સાધક:</span>
+                    <span style={{ fontWeight: 800, color: '#0f172a', borderBottom: '1px dashed #64748b', minWidth: '95px', paddingBottom: '1px' }}>
                       {slip.memberName || '____________________'}
                     </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                    <span style={{ color: '#1F4E78', fontWeight: 700 }}>માસ:</span>
+                    <span style={{ fontWeight: 700, color: '#1e293b' }}>{monthText}</span>
                   </div>
                 </div>
 
@@ -1062,11 +1287,12 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
                 <table className="slip-table">
                   <thead>
                     <tr>
-                      <th style={{ width: '8%' }}>ક્રમ</th>
-                      <th style={{ width: '22%' }}>તારીખ</th>
-                      <th style={{ width: '18%' }}>દિવસ</th>
-                      <th style={{ width: '38%' }}>કીર્તન / વચનામૃતનું નામ</th>
-                      <th style={{ width: '14%' }}>નોંધ</th>
+                      <th style={{ width: '7%' }}>ક્રમ</th>
+                      <th style={{ width: '16%' }}>તારીખ</th>
+                      <th style={{ width: '13%' }}>દિવસ</th>
+                      <th style={{ width: '35%' }}>કીર્તન / વચનામૃતનું નામ</th>
+                      <th style={{ width: '10%' }}>તપાસ (✓)</th>
+                      <th style={{ width: '19%' }}>નોંધ</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1081,10 +1307,21 @@ export default function RunningWorkTab({ membersList = [], vachanamrutsList = []
                         <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                           {row.dayLabel}
                         </td>
-                        <td style={{ paddingLeft: '8px', fontWeight: 600, color: '#1e293b' }}>
+                        <td style={{ paddingLeft: '6px', fontWeight: 600, color: '#1e293b' }}>
                           {row.title}
                         </td>
-                        <td style={{ textAlign: 'center' }}>
+                        <td style={{ textAlign: 'center', padding: '0' }}>
+                          <div style={{
+                            display: 'inline-block',
+                            width: '13px',
+                            height: '13px',
+                            border: '1.3px solid #334155',
+                            borderRadius: '2px',
+                            verticalAlign: 'middle',
+                            background: '#ffffff'
+                          }}></div>
+                        </td>
+                        <td style={{ paddingLeft: '6px', fontSize: '8.8pt', color: '#475569' }}>
                           {row.note}
                         </td>
                       </tr>
